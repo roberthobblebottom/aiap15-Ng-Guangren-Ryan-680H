@@ -55,8 +55,7 @@ def histogram_gradient_boosting_classifier_bayes_optimisation(df_x,df_y):
     # Getting all the matrices out from pipeline 1
     datetime_now = datetime.now()
     objectives_1 = np.array([[trial.objective_mean for trial in experiment_1.trials.values()]])
-    best_objective_plot = optimization_trace_single_method(y=objectives_1,
-                                                            title="",
+    best_objective_plot = optimization_trace_single_method(y=objectives_1, title="",
                                                               ylabel="mean absoulute error")
     fig = best_objective_plot    # TODO 
     matrices = str(best_parameters_1) +"\n"+str(values_1)
@@ -93,9 +92,7 @@ def hist_gradiant_boosting_classifer_pipeline_func(parameters,x_train,y_train,
 
 def base(title,estimator,x_train,y_train,x_test,y_test,show_stats,matrices=None,datetime_now=None):
     pipeline = estimator.fit(x_train, y=y_train)
-    # print()
-    # print(x_train.iloc[:10,:3])
-    # print()
+
     y_predictions = pipeline.predict(x_test)
     if not show_stats:
         return y_predictions
@@ -120,7 +117,7 @@ def base(title,estimator,x_train,y_train,x_test,y_test,show_stats,matrices=None,
     
 def ax_optimise(parameters):
     accuracies =[]    
-    kfold = StratifiedKFold(5,shuffle=True)
+    kfold = StratifiedKFold(5) # Useful for hugely imbalanced class count and arbitrary data order. No need shuffle
     for rest, pick in kfold.split(df_x,df_y):
         x_train = df_x.iloc[rest, :]
         y_train = df_y[rest]
@@ -269,9 +266,11 @@ if __name__ == "__main__":
                                 #    ('wifi_entertainment_simple_imputer',SimpleImputer(missing_values=-1,strategy='constant'),["wifi","entertainment"]), 
                                 # SimpleImputer does not impute Nan natively, I have to do it outside, I don't think there will be much leakage
                                     ('ordinal_encoder',
-                                     OrdinalEncoder(handle_unknown='use_encoded_value',unknown_value=np.nan),
+                                     OrdinalEncoder(handle_unknown='use_encoded_value',
+                                                    unknown_value=np.nan),
                                      ordinal_encoder_categories),
-                                    ('one_hot_encoder',OneHotEncoder(sparse=False),one_hot_encoder_categories),
+                                    ('one_hot_encoder',OneHotEncoder(sparse=False),
+                                     one_hot_encoder_categories),
                                 ], remainder='passthrough',
                                )
                                ),
