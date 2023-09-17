@@ -6,12 +6,14 @@ import configparser
 from datetime import datetime
 from copy import deepcopy
 from sklearn.impute import  SimpleImputer
-from sklearn.feature_selection import SelectPercentile, SelectKBest
-from sklearn.preprocessing import OrdinalEncoder,LabelEncoder,label_binarize,OneHotEncoder
+from sklearn.feature_selection import SelectPercentile
+from sklearn.preprocessing import OrdinalEncoder,LabelEncoder,OneHotEncoder,RobustScaler,label_binarize
 from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
+# from sklearn.pipeline import Pipeline
+from imblearn.pipeline import Pipeline
 from sklearn.ensemble import RandomForestClassifier,HistGradientBoostingClassifier
-from sklearn.model_selection import KFold, StratifiedKFold
+from sklearn.model_selection import  StratifiedKFold
+# from imblearn.over_sampling import SMOTEN
 from sklearn.metrics import (
     ConfusionMatrixDisplay,
     accuracy_score,
@@ -26,11 +28,14 @@ from sklearn.linear_model import SGDClassifier
 import matplotlib.pyplot as plt
 from ax import optimize
 from ax.plot.contour import plot_contour
-from ax.plot.trace import optimization_trace_single_method
+from ax.plot.trace import optimization_trace_single_method_plotly
 from ax.utils.notebook.plotting import init_notebook_plotting, render
 
 rng =0
+classes = ["Standard","Luxuary","Deluxe"]
 def histogram_gradient_boosting_classifier_bayes_optimisation(df_x,df_y): 
+    print(df_y)# TODO
+    name = "Histogram Gradient Boosting Classifier"
     parameterScope = [
     {"name": "learning_rate", "type": "range", "value_type": "float",
      "bounds": [0.01,0.5], "is_ordered":False, },
@@ -48,16 +53,17 @@ def histogram_gradient_boosting_classifier_bayes_optimisation(df_x,df_y):
         parameters=parameterScope,
         evaluation_function=ax_optimise,
         objective_name='accuracy',
-        total_trials=6,
+        total_trials=1,# TODO set it to a higher number later
         minimize=True,random_seed=rng
     )
 
+    
     # Getting all the matrices out from pipeline 1
     datetime_now = datetime.now()
     objectives_1 = np.array([[trial.objective_mean for trial in experiment_1.trials.values()]])
-    best_objective_plot = optimization_trace_single_method(y=objectives_1, title="",
-                                                              ylabel="mean absoulute error")
-    fig = best_objective_plot    # TODO 
+    optimization_trace_single_method_plotly(y=objectives_1, title="",ylabel="accuracy")\
+                .write_image("classifiers_performances/optimization_trace_single_method_ploty_"+\
+                             name+"_"+str(datetime_now)+".png")
     matrices = str(best_parameters_1) +"\n"+str(values_1)
     kfold = StratifiedKFold(5,shuffle=True)
     for rest, pick in kfold.split(df_x,df_y):
@@ -66,18 +72,18 @@ def histogram_gradient_boosting_classifier_bayes_optimisation(df_x,df_y):
         x_test = df_x.iloc[pick, :]
         y_test = df_y[pick]
         break
-    hist_gradiant_boosting_classifer_pipeline_func(best_parameters_1, x_train, y_train, x_test,y_test,
+    hist_gradiant_boosting_classifer_pipeline_func(name,best_parameters_1, x_train, y_train, x_test,y_test,
                                                show_stats=True,matrices=matrices,datetime_now=datetime_now) 
 
     return model_1
-def hist_gradiant_boosting_classifer_pipeline_func(parameters,x_train,y_train,
+def hist_gradiant_boosting_classifer_pipeline_func(name,parameters,x_train,y_train,
                                               x_test,y_test,show_stats,matrices = None,datetime_now=None):
     pipeline = deepcopy(base_pipeline)
-    pipeline.steps.append(
-                          ("histogram_gradient_boosting_classifier",HistGradientBoostingClassifier(
+    pipeline.steps.append(("histogram_gradient_boosting_classifier",HistGradientBoostingClassifier(
                               warm_start =False,
-                              random_state = rng
-                          )))
+                              random_state = rng,
+                              class_weight = 'balanced'
+                          ))) # HistogramGradientBoostingClassifier is much faster for 10,000+ rows
     pipeline.set_params(**{
         "histogram_gradient_boosting_classifier__learning_rate":parameters["learning_rate"],
         "histogram_gradient_boosting_classifier__max_depth":parameters["max_depth"],
@@ -85,31 +91,32 @@ def hist_gradiant_boosting_classifer_pipeline_func(parameters,x_train,y_train,
         "histogram_gradient_boosting_classifier__l2_regularization":parameters["l2_regularization"],
         "histogram_gradient_boosting_classifier__max_iter":parameters["max_iter"],
     })# TODO something is wrong here
-    return base("Histogram Gradient Boosting Classifier",pipeline,x_train,y_train,x_test,y_test,
+    return base(name,pipeline,x_train,y_train,x_test,y_test,
                 show_stats,matrices=matrices,datetime_now=datetime_now)
 
     
 
-def base(title,estimator,x_train,y_train,x_test,y_test,show_stats,matrices=None,datetime_now=None):
+def base(name,estimator,x_train,y_train,x_test,y_test,show_stats,matrices=None,datetime_now=None):
     pipeline = estimator.fit(x_train, y=y_train)
 
     y_predictions = pipeline.predict(x_test)
     if not show_stats:
         return y_predictions
+    
     matrices = ""
     y_probabilities = pipeline.predict_proba(x_test)
     cm = confusion_matrix(y_test, y_predictions)
     display = ConfusionMatrixDisplay(
-        confusion_matrix=cm, display_labels=estimator.classes_)
+        confusion_matrix=cm, display_labels=classes).plot()
     plt.xticks(rotation=30)
     plt.yticks(rotation=30)
-    plt.title(title)
-    # display.figure__.savefig("classifiers_performances/"+title+" "+datetime_now)  # TODO: does this line and the previous 3 lines work together correctly? 
+    plt.title(name)
+    plt.savefig("classifiers_performances/confusion_matrix_"+name+"_"+str(datetime_now),format="png")
     
     matrices += "\n" + classification_report(y_test, y_predictions)
     matrices += "\n AUROC score:"+str(roc_auc_score(y_test,    
           y_probabilities, multi_class='ovo')) 
-    with open("classifiers_performances/"+title+"_"+str(datetime_now),'w') as f:
+    with open("classifiers_performances/"+name+"_"+str(datetime_now),'w') as f:
         for line in matrices:
             f.write(line)
             # f.write('\n')
@@ -118,20 +125,16 @@ def base(title,estimator,x_train,y_train,x_test,y_test,show_stats,matrices=None,
 def ax_optimise(parameters):
     accuracies =[]    
     kfold = StratifiedKFold(5) # Useful for hugely imbalanced class count and arbitrary data order. No need shuffle
+    print(df_y)# TODO you piece of shit
     for rest, pick in kfold.split(df_x,df_y):
         x_train = df_x.iloc[rest, :]
         y_train = df_y[rest]
         x_test = df_x.iloc[pick, :]
         y_test = df_y[pick]
-        # y_test_binarized = label_binarize(y_test, classes=[
-        #                                             'functional', 'functional needs repair', 'non functional'])
-        predictions = train_predict_pipeline(parameters, x_train, y_train, x_test,y_test, False)
-        # mae =  mean_absolute_error(y_test_binarized,
-                                # label_binarize(predictions, classes=['functional', 'functional needs repair', 'non functional'])
-                                # )
-        print()
-        print(y_test)
-        print(predictions)
+        predictions = train_predict_pipeline("",parameters, x_train, y_train, x_test,y_test, False)
+        # print()
+        # print(y_test)
+        # print(predictions)
         accuracy = accuracy_score(y_test,predictions)
         accuracies.append(accuracy)       
     print(accuracies)
@@ -236,9 +239,7 @@ if __name__ == "__main__":
             return born
         born = datetime.strptime(str(born), "%Y-%m-%d %H:%M:%S").date()
         today = datetime.today()
-        return today.year - born.year - ((today.month, 
-                                        today.day) < (born.month, 
-                                                        born.day))
+        return today.year - born.year - ((today.month, today.day) < (born.month, born.day))
     df_x["age"] = df_x.date_of_birth.apply(age).fillna(0).astype(str).astype(int)
     df_x.drop("date_of_birth",axis=1,inplace=True)
 
@@ -248,9 +249,9 @@ if __name__ == "__main__":
     #imputation of wifi and entertainemnt
     df_x[["wifi","entertainment"]]=df_x[["wifi","entertainment"]].fillna(-1) 
 
-    label_encoder = LabelEncoder()
-    df_y = label_encoder.fit_transform(df_y)
-
+    # label_encoder = LabelEncoder()
+    # df_y = label_encoder.fit_transform(df_y,)
+    # df_y = label_binarize(df_y,classes=classes)
     ordinal_encoder_categories = [ 'onboard_wifi_service',
         'embarkation/disembarkation_time_convenient', 'ease_of_online_booking',
         'gate_location', 'onboard_dining_service', 'online_check-in',
@@ -269,16 +270,36 @@ if __name__ == "__main__":
                                      OrdinalEncoder(handle_unknown='use_encoded_value',
                                                     unknown_value=np.nan),
                                      ordinal_encoder_categories),
-                                    ('one_hot_encoder',OneHotEncoder(sparse=False),
+                                    ('one_hot_encoder',OneHotEncoder(sparse_output=False),
                                      one_hot_encoder_categories),
-                                ], remainder='passthrough',
+                                ], remainder='passthrough', verbose_feature_names_out=False
                                )
                                ),
+                        ("robust_scaler",RobustScaler()),
                          ("simple_imputer",SimpleImputer(strategy="median")),
-                         ("select_percentile",SelectPercentile(percentile=50)),
+                         ("select_percentile",SelectPercentile(percentile=51)),
+                        #  ("smoten",SMOTEN(random_state=rng)), # crashes my computer and may not be most useful, class weights are better?
+                        #  ("standard_scaler",StandardScaler()),
                          ])
-    
-    train_predict_pipeline = hist_gradiant_boosting_classifer_pipeline_func
-    
-    model_1 = histogram_gradient_boosting_classifier_bayes_optimisation(df_x,df_y)
+    '''
+                        TODO reduce this
+                        StandardScaler removes the mean and scales the data to unit variance.  
+                        The scaling shrinks the range of the feature values as shown in the left figure below.  
+                        However, the outliers have an influence when computing the empirical mean and standard deviation.  
+                        Note in particular that because the outliers on each feature have different magnitudes,  
+                        the spread of the transformed data on each feature is very different:  
+                        most of the data lie in the [-2, 4] range for the transformed median income feature 
+                        while the same data is squeezed in the smaller [-0.2, 0.2] range for the transformed average house occupancy.
+
+                        StandardScaler therefore cannot guarantee balanced feature scales in the presence of outliers.       
+
+                        Both StandardScaler and MinMaxScaler are very sensitive to the presence of outliers.     
+                        TODO should I use RobustScaler?     
+                        
+                        There are outliers but few enoght
+    '''
+
+train_predict_pipeline = hist_gradiant_boosting_classifer_pipeline_func
+
+model_1 = histogram_gradient_boosting_classifier_bayes_optimisation(df_x,df_y)
     
