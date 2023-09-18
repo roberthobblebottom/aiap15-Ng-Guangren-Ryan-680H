@@ -7,19 +7,18 @@ from sklearn.feature_selection import SelectPercentile
 from sklearn.preprocessing import OrdinalEncoder,OneHotEncoder,RobustScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import  StratifiedKFold
+from sklearn.model_selection import  StratifiedKFold,train_test_split
 from sklearn.metrics import (
     ConfusionMatrixDisplay,
-    accuracy_score,
-    classification_report,
+    balanced_accuracy_score,
+            classification_report,
     confusion_matrix,
     roc_auc_score,
+    average_precision_score
 )
 import matplotlib.pyplot as plt
 from ax import optimize
-from ax.plot.contour import plot_contour
 from ax.plot.trace import optimization_trace_single_method_plotly
-from ax.utils.notebook.plotting import init_notebook_plotting, render
 rng = 0
 class PipelinesAndOptimisations:
     rng =0
@@ -28,8 +27,10 @@ class PipelinesAndOptimisations:
     def __init__(self,df_x,df_y,classes,classifier,params_to_be_set):
         self.df_x = df_x
         self.df_y = df_y
-        self.x_train,self.y_train,self.x_test,self.y_test = \
-            pd.DataFrame(),pd.DataFrame(),pd.DataFrame,pd.DataFrame()
+        self.x_train = pd.DataFrame()
+        self.y_train = pd.DataFrame()
+        self.x_test = pd.DataFrame()
+        self.y_test = pd.DataFrame()
         self.classes = classes
         ordinal_encoder_categories = [ 'onboard_wifi_service',
         'embarkation/disembarkation_time_convenient', 'ease_of_online_booking',
@@ -59,22 +60,11 @@ class PipelinesAndOptimisations:
                         #  ("standard_scaler",StandardScaler()),
                          ])
         
-                        # TODO reduce this
-                        # StandardScaler removes the mean and scales the data to unit variance.  
-                        # The scaling shrinks the range of the feature values as shown in the left figure below.  
-                        # However, the outliers have an influence when computing the empirical mean and standard deviation.  
-                        # Note in particular that because the outliers on each feature have different magnitudes,  
-                        # the spread of the transformed data on each feature is very different:  
-                        # most of the data lie in the [-2, 4] range for the transformed median income feature 
-                        # while the same data is squeezed in the smaller [-0.2, 0.2] range for the transformed average house occupancy.
-                        # StandardScaler therefore cannot guarantee balanced feature scales in the presence of outliers.       
-                        # Both StandardScaler and MinMaxScaler are very sensitive to the presence of outliers.     
-                        # TODO should I use RobustScaler?     
-                        # There are outliers but few enoght
+           
         
         self.pipeline.steps.append(classifier)
         self.params_to_be_set = params_to_be_set
-        self.matrices = ""
+        self.matrices,self.classifier_name = "",""
         self.datetime_now = datetime.now()
 
     def hist_gbc_bo(self):
@@ -113,8 +103,16 @@ class PipelinesAndOptimisations:
             "is_ordered":True},
         ]
         self.bayesian_optimization(parameters=parameters,name=name)
-
+    def adabc_bo(self):
+        name = "ADA Boost classifier"
+        parameters=[
+            {"name": "learning_rate", "type": "range", "value_type": "float",
+            "bounds": [0.01,0.5], "is_ordered":False, }]
+        self.bayesian_optimization(parameters=parameters,name=name)
     def bayesian_optimization(self,parameters,name):
+        # self.df_x,self.df_x2,self.df_y,self.df_y2 =\
+        #       train_test_split((self.df_x,self.df_y),0.2)
+
         best_parameters, values, experiment, model = optimize(
             parameters=parameters,
             evaluation_function=self.ax_optimise,
@@ -128,14 +126,14 @@ class PipelinesAndOptimisations:
                     .write_image("classifiers_performances/optimization_trace_single_method_ploty_"+\
                                 name+"_"+str(self.datetime_now)+".png")
         self.matrices = str(best_parameters) +"\n"+str(values)
-        # kfold = StratifiedKFold(5,shuffle=True)
-        # for rest, pick in kfold.split(self.df_x,self.df_y):
-        #     self.x_train = self.df_x.iloc[rest, :]
-        #     self.y_train = self.df_y[rest]
-        #     self.x_test = self.df_x.iloc[pick, :]
-        #     self.y_test = self.df_y[pick]
-        #     break
-        self.paramters = best_parameters
+         
+        #show stats base now uses
+        print(best_parameters)
+        print(self.params_to_be_set)
+        self.pipeline.set_params(**{
+        param:best_parameters[param.replace(self.classifier_name+"__","")]\
+                for param in self.params_to_be_set
+        })
         self.base(name,show_stats=True) 
         return model
     
@@ -158,10 +156,15 @@ class PipelinesAndOptimisations:
         self.matrices += "\n" + classification_report(self.y_test, y_predictions)
         self.matrices += "\n AUROC score:"+str(roc_auc_score(self.y_test,    
             y_probabilities, multi_class='ovo')) 
+        self.matrices += "\n Average precision score:"+str(average_precision_score(
+            self.y_test,    
+            y_probabilities, 
+            average='weighted')) 
+
+
         with open("classifiers_performances/"+name+"_"+str(self.datetime_now),'w') as f:
             for line in self.matrices:
                 f.write(line)
-                # f.write('\n')
         return y_predictions
         
     def ax_optimise(self,parameters):
@@ -169,8 +172,9 @@ class PipelinesAndOptimisations:
         accuracies =[]    
         kfold = StratifiedKFold(5) 
         # Useful for hugely imbalanced class count and arbitrary data order. No need shuffle
-        classifier_name = self.params_to_be_set[0].split("__")[0]
-        params = {param: parameters[param.replace(classifier_name+"__","")] for param in self.params_to_be_set}
+        self.classifier_name = self.params_to_be_set[0].split("__")[0]
+        params = {param: parameters[param.replace(self.classifier_name+"__","")]\
+                   for param in self.params_to_be_set}
         self.pipeline.set_params(**params)
         for rest, pick in kfold.split(self.df_x,self.df_y):
             self.x_train = self.df_x.iloc[rest, :]
@@ -181,7 +185,7 @@ class PipelinesAndOptimisations:
             # print()
             # print(y_test)
             # print(predictions)
-            accuracy = accuracy_score(self.y_test,predictions)
+            accuracy = balanced_accuracy_score(self.y_test,predictions)
             accuracies.append(accuracy)       
         print(accuracies)
         sum = 0

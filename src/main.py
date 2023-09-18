@@ -4,7 +4,7 @@ import sys
 import configparser
 from datetime import datetime
 from sklearn.preprocessing import OrdinalEncoder,LabelEncoder,OneHotEncoder,RobustScaler,label_binarize
-from sklearn.ensemble import RandomForestClassifier,HistGradientBoostingClassifier
+from sklearn.ensemble import RandomForestClassifier,HistGradientBoostingClassifier,AdaBoostClassifier
 # from imblearn.over_sampling import SMOTEN
 
 from sklearn.linear_model import SGDClassifier
@@ -154,5 +154,17 @@ if __name__ == "__main__":
                     class_weight="balanced"
              )), params_to_be_set=params)
     b.rf_bo()
-    
+
+    print("ADA boosting classifier bayesian optimisation")
+    print("ADA boosting classifier bayesian optimisation")
+    print("ADA boosting classifier bayesian optimisation")
+
+    params = [
+        'ada_boost_classifier__learning_rate',   
+    ]
+    b = PipelinesAndOptimisations(df_x,df_y,classes,
+            classifier=("",AdaBoostClassifier(
+                random_state = rng,
+            )),params_to_be_set=params)
+    b.adabc_bo()
     
