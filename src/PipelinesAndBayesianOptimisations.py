@@ -14,7 +14,8 @@ from sklearn.metrics import (
             classification_report,
     confusion_matrix,
     roc_auc_score,
-    average_precision_score
+    average_precision_score,
+    accuracy_score
 )
 import matplotlib.pyplot as plt
 from ax import optimize
@@ -42,7 +43,8 @@ class PipelinesAndOptimisations:
         'cleanliness']
         one_hot_encoder_categories = ["gender","source_of_traffic","cruise_name"]
 
-        self.pipeline = Pipeline([("column_transformer",
+        self.pipeline = Pipeline([
+                                ("column_transformer",
                                ColumnTransformer(
                                [
                                 #('wifi_entertainment_simple_imputer',SimpleImputer(missing_values=-1,strategy='constant'),["wifi","entertainment"]), 
@@ -56,13 +58,11 @@ class PipelinesAndOptimisations:
                                 ], remainder='passthrough', verbose_feature_names_out=False
                                )),
                             ("robust_scaler",RobustScaler()),
-                            ("simple_imputer",SimpleImputer(strategy="median")),
-                            ("select_percentile",SelectPercentile(percentile=51)),
-                        #  ("smoten",SMOTEN(random_state=rng)), # crashes my computer and may not be most useful, class weights are better?
+                            ("simple_imputer",SimpleImputer(strategy="most_frequent")),
+                            ("select_percentile",SelectPercentile(percentile=50)),
+                            #("smoten",SMOTEN(random_state=rng)), # crashes my computer and may not be most useful, class weights are better?
                          ])
-        
-           
-        
+       
         self.pipeline.steps.append(classifier)
         self.params_to_be_set = params_to_be_set
         self.matrices,self.classifier_name = "",""
@@ -104,7 +104,6 @@ class PipelinesAndOptimisations:
             "is_ordered":True},
         ]
         self.bayesian_optimization(parameters=parameters,name=name)
-
     def adabc_bo(self):
         name = "ADA Boost classifier"
         parameters=[
@@ -120,7 +119,7 @@ class PipelinesAndOptimisations:
             parameters=parameters,
             evaluation_function=self.ax_optimise,
             objective_name='accuracy',
-            total_trials=3,# TODO set it to a higher number later
+            total_trials=10,# TODO set it to a higher number later
             minimize=False,random_seed=rng
         )
         
@@ -173,20 +172,21 @@ class PipelinesAndOptimisations:
 
  
     def base(self,name,show_stats):
-
         if not show_stats:
             # print("................")
             # print(self.x_train)
             # print(self.x_test)
             self.pipeline.fit(self.x_train, y=self.y_train)
+            # features = self.pipeline.get_feature_names_out()
+            # print("\n\n\n",features)
             y_predictions = self.pipeline.predict(self.x_test)
             return y_predictions
-        
+        #note x_text, y_test are now df_x2 and df_x2
         pipeline = self.pipeline.fit(self.x_train, y=self.y_train)
-        y_predictions = pipeline.predict(self.x_test)
-        y_probabilities = pipeline.predict_proba(self.x_test)
+        y_predictions = pipeline.predict(self.df_x2)
+        y_probabilities = pipeline.predict_proba(self.df_x2)
 
-        cm = confusion_matrix(self.y_test, y_predictions)
+        cm = confusion_matrix(self.df_y2, y_predictions)
         ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=self.classes).plot()
         plt.xticks(rotation=30)
         plt.yticks(rotation=30)
@@ -194,11 +194,9 @@ class PipelinesAndOptimisations:
         plt.savefig("classifiers_performances/confusion_matrix_"+name+
                     "_"+str(self.datetime_now),format="png")
         
-        self.matrices += "\n" + classification_report(self.y_test, y_predictions)
-        self.matrices += "\n AUROC score:"+str(roc_auc_score(self.y_test,    
-            y_probabilities, multi_class='ovo')) 
-        self.matrices += "\n Average precision score:"+str(average_precision_score(
-            self.y_test,y_probabilities, average='weighted')) 
+        self.matrices += "\n" + classification_report(self.df_y2, y_predictions,target_names=self.classes) + \
+                        "\n AUROC score:"+str(roc_auc_score(self.df_y2,y_probabilities, multi_class='ovo')) + \
+                        "\n Average precision score:"+str(average_precision_score(self.df_y2,y_probabilities, average='weighted')) 
         with open("classifiers_performances/"+name+"_"+str(self.datetime_now),'w') as f:
             for line in self.matrices:
                 f.write(line)

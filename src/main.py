@@ -136,14 +136,14 @@ if __name__ == "__main__":
                 "histogram_gradient_boosting_classifier__l2_regularization",
                 "histogram_gradient_boosting_classifier__max_iter"
     ]
-    b = PipelinesAndOptimisations(df_x,df_y,classes,
+    histGradientBoostingClassifier1 = PipelinesAndOptimisations(df_x,df_y,classes,
              classifier=("histogram_gradient_boosting_classifier",HistGradientBoostingClassifier(
                               warm_start =False,random_state = rng,
                               class_weight = 'balanced'
                         )),
             params_to_be_set=params
             )
-    b.hist_gbc_bo()
+    histGradientBoostingClassifier1.hist_gbc_bo()
 
     print("\n\nRandom Forest Classifier Bayesian Optimisation")
     params = [
@@ -151,7 +151,7 @@ if __name__ == "__main__":
             'random_forest_classifier__criterion',
             'random_forest_classifier__max_features' 
     ]
-    b = PipelinesAndOptimisations(df_x,df_y,classes,
+    rfc = PipelinesAndOptimisations(df_x,df_y,classes,
              classifier=("random_forest_classifier",RandomForestClassifier(
                     random_state=rng,
                     n_jobs =5,
@@ -159,16 +159,20 @@ if __name__ == "__main__":
                     n_estimators = 500,
                     class_weight="balanced"
              )), params_to_be_set=params)
-    b.rf_bo()
+    rfc.rf_bo()
 
     print("\n\nADA boosting classifier bayesian optimisation")
 
     params = [
         'ada_boost_classifier__learning_rate',   
     ]
-    b = PipelinesAndOptimisations(df_x,df_y,classes,
-            classifier=("ada_boosting_classifier",AdaBoostClassifier(
+    adaboost = PipelinesAndOptimisations(df_x,df_y,classes,
+            classifier=("ada_boost_classifier",AdaBoostClassifier(
                 random_state = rng,
             )),params_to_be_set=params)
-    b.adabc_bo()
+    adaboost.adabc_bo()
+
+    
+
+    
     

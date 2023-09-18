@@ -62,3 +62,8 @@ These other metrics below will be remained for cross references or some other in
 `f1`,`average_precision_score` or aka "area under the precision and recall curve" are more secondary in as these metrics looks at positive `f1`the weighted harmonic mean between pecision and recall. `average_precision_score` is used as it supports multiclass and multilables and calcuate the data in a one_vs_the_rest fashion and averages. These two metrics may be less useful.
 
 final thoughs: balanced accuracy + AUCROC > f1, average_precision_score
+
+
+# Selecting prefered pipeline
+
+the pipeline objects after bayesian optimisation has the best parameters within. you may train it with `self.df_x` and `self.df_y` and then test it with `self.df_x2` and `df_y2`
