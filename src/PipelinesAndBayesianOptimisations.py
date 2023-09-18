@@ -31,6 +31,8 @@ class PipelinesAndOptimisations:
         self.y_train = pd.DataFrame()
         self.x_test = pd.DataFrame()
         self.y_test = pd.DataFrame()
+        self.df_x2 = pd.DataFrame()
+        self.df_y2  = pd.DataFrame()
         self.classes = classes
         ordinal_encoder_categories = [ 'onboard_wifi_service',
         'embarkation/disembarkation_time_convenient', 'ease_of_online_booking',
@@ -57,7 +59,6 @@ class PipelinesAndOptimisations:
                             ("simple_imputer",SimpleImputer(strategy="median")),
                             ("select_percentile",SelectPercentile(percentile=51)),
                         #  ("smoten",SMOTEN(random_state=rng)), # crashes my computer and may not be most useful, class weights are better?
-                        #  ("standard_scaler",StandardScaler()),
                          ])
         
            
@@ -103,22 +104,24 @@ class PipelinesAndOptimisations:
             "is_ordered":True},
         ]
         self.bayesian_optimization(parameters=parameters,name=name)
+
     def adabc_bo(self):
         name = "ADA Boost classifier"
         parameters=[
             {"name": "learning_rate", "type": "range", "value_type": "float",
             "bounds": [0.01,0.5], "is_ordered":False, }]
         self.bayesian_optimization(parameters=parameters,name=name)
+
     def bayesian_optimization(self,parameters,name):
-        # self.df_x,self.df_x2,self.df_y,self.df_y2 =\
-        #       train_test_split((self.df_x,self.df_y),0.2)
+        self.df_x,self.df_x2,self.df_y,self.df_y2 =\
+              train_test_split(self.df_x,self.df_y,test_size=0.2)
 
         best_parameters, values, experiment, model = optimize(
             parameters=parameters,
             evaluation_function=self.ax_optimise,
             objective_name='accuracy',
-            total_trials=10,# TODO set it to a higher number later
-            minimize=True,random_seed=rng
+            total_trials=3,# TODO set it to a higher number later
+            minimize=False,random_seed=rng
         )
         
         objectives = np.array([[trial.objective_mean for trial in experiment.trials.values()]])
@@ -126,25 +129,63 @@ class PipelinesAndOptimisations:
                     .write_image("classifiers_performances/optimization_trace_single_method_ploty_"+\
                                 name+"_"+str(self.datetime_now)+".png")
         self.matrices = str(best_parameters) +"\n"+str(values)
-         
-        #show stats base now uses
         print(best_parameters)
-        print(self.params_to_be_set)
         self.pipeline.set_params(**{
         param:best_parameters[param.replace(self.classifier_name+"__","")]\
                 for param in self.params_to_be_set
         })
+        # kfold = StratifiedKFold(5)
+        # for rest, pick in kfold.split(self.df_x,self.df_y):
+        #     self.x_train = self.df_x.iloc[rest, :]
+        #     self.y_train = self.df_y[rest]
+        #     self.x_test = self.df_x.iloc[pick, :]
+        #     self.y_test = self.df_y[pick]
+
         self.base(name,show_stats=True) 
         return model
-    
+           
+    def ax_optimise(self,parameters):
+        self.paramters = parameters
+        accuracies =[]    
+        kfold = StratifiedKFold(5)  # Useful for hugely imbalanced class count and arbitrary data order. No need shuffle
+        self.classifier_name = self.params_to_be_set[0].split("__")[0]
+        params = {param: parameters[param.replace(self.classifier_name+"__","")]\
+                   for param in self.params_to_be_set}
+        self.pipeline.set_params(**params)
+        for rest, pick in kfold.split(self.df_x,self.df_y):
+            self.x_train = self.df_x.iloc[rest, :]
+            self.y_train = self.df_y[rest]
+            self.x_test = self.df_x.iloc[pick, :]
+            self.y_test = self.df_y[pick]
+            predictions = self.base("",False)
+            print("................")
+            print(self.y_test)
+            print(predictions)
+            accuracy = balanced_accuracy_score(self.y_test,predictions)
+            accuracies.append(accuracy)       
+        print(accuracies)
+        sum = 0
+        for accuracy in accuracies:
+            sum += accuracy 
+        avg = sum/len(accuracies)
+        print("average accuracy: "+format(avg))
+        return avg
+
+ 
     def base(self,name,show_stats):
-        print("pipeline fitting")
+
+        if not show_stats:
+            # print("................")
+            # print(self.x_train)
+            # print(self.x_test)
+            self.pipeline.fit(self.x_train, y=self.y_train)
+            y_predictions = self.pipeline.predict(self.x_test)
+            return y_predictions
+        
         pipeline = self.pipeline.fit(self.x_train, y=self.y_train)
         y_predictions = pipeline.predict(self.x_test)
-        if not show_stats:
-            return y_predictions
-        print("Showing more stats")
         y_probabilities = pipeline.predict_proba(self.x_test)
+
         cm = confusion_matrix(self.y_test, y_predictions)
         ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=self.classes).plot()
         plt.xticks(rotation=30)
@@ -157,41 +198,8 @@ class PipelinesAndOptimisations:
         self.matrices += "\n AUROC score:"+str(roc_auc_score(self.y_test,    
             y_probabilities, multi_class='ovo')) 
         self.matrices += "\n Average precision score:"+str(average_precision_score(
-            self.y_test,    
-            y_probabilities, 
-            average='weighted')) 
-
-
+            self.y_test,y_probabilities, average='weighted')) 
         with open("classifiers_performances/"+name+"_"+str(self.datetime_now),'w') as f:
             for line in self.matrices:
                 f.write(line)
         return y_predictions
-        
-    def ax_optimise(self,parameters):
-        self.paramters = parameters
-        accuracies =[]    
-        kfold = StratifiedKFold(5) 
-        # Useful for hugely imbalanced class count and arbitrary data order. No need shuffle
-        self.classifier_name = self.params_to_be_set[0].split("__")[0]
-        params = {param: parameters[param.replace(self.classifier_name+"__","")]\
-                   for param in self.params_to_be_set}
-        self.pipeline.set_params(**params)
-        for rest, pick in kfold.split(self.df_x,self.df_y):
-            self.x_train = self.df_x.iloc[rest, :]
-            self.y_train = self.df_y[rest]
-            self.x_test = self.df_x.iloc[pick, :]
-            self.y_test = self.df_y[pick]
-            predictions = self.base("",False)
-            # print()
-            # print(y_test)
-            # print(predictions)
-            accuracy = balanced_accuracy_score(self.y_test,predictions)
-            accuracies.append(accuracy)       
-        print(accuracies)
-        sum = 0
-        for accuracy in accuracies:
-            sum += accuracy 
-        avg = sum/len(accuracies)
-        print("average accuracy: "+format(avg))
-        return avg
-

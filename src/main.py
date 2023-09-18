@@ -3,7 +3,7 @@ import sqlite3
 import sys
 import configparser
 from datetime import datetime
-from sklearn.preprocessing import LabelEncoder,
+from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestClassifier,HistGradientBoostingClassifier,AdaBoostClassifier
 from PipelinesAndBayesianOptimisations import PipelinesAndOptimisations
 
@@ -70,7 +70,7 @@ if __name__ == "__main__":
     df_split_1 = df_2_dupes.drop_duplicates(passanger_code_text,keep='first',ignore_index=True)
     df_split_2 = df_2_dupes.drop_duplicates(passanger_code_text,keep='last',ignore_index=True)
 
-    #feature engineering to get non None ticket_typefor df_split_2
+    #data cleaning to get non None ticket_typefor df_split_2
     comparison =df_split_1.compare(df_split_2)
     comparison.ticket_type = comparison.ticket_type.fillna("")
     df_split_2.loc[:,"ticket_type"] = comparison.ticket_type.self + comparison.ticket_type.other
@@ -92,10 +92,10 @@ if __name__ == "__main__":
     df_x = df.drop(["ticket_type"],axis =1).set_index(passanger_code_text,drop=True)
     df_y = df.ticket_type 
 
-    # cruise_distance feature engineering
+    # cruise_distance data cleaning
     df_x.cruise_distance = df_x.cruise_distance.str.split(" ").str[0]
 
-    #feature engineering of `date-of_birth` to `age` of type int
+    #data cleaning of `date-of_birth` to `age` of type int
     df_x["temp_1"] = pd.to_datetime(df_x.date_of_birth,format="%Y-%m-%d",errors='coerce')
     df_x["temp_2"] = pd.to_datetime(df_x.date_of_birth,format="%d/%m/%Y",errors='coerce')
     df_x["date_of_birth"] = df_x.temp_1.fillna(df_x.temp_2)
@@ -167,7 +167,7 @@ if __name__ == "__main__":
         'ada_boost_classifier__learning_rate',   
     ]
     b = PipelinesAndOptimisations(df_x,df_y,classes,
-            classifier=("",AdaBoostClassifier(
+            classifier=("ada_boosting_classifier",AdaBoostClassifier(
                 random_state = rng,
             )),params_to_be_set=params)
     b.adabc_bo()

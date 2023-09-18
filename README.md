@@ -5,15 +5,15 @@ ryan.ng@protonmail.com
   
 Use Github actions to install the requirements from `requirements.txt` and run `run.sh`.
 
-# In `main.py``\
+# In `main.py`
 
 Using configuration files so that if misconfigured the codes will be rombust enough to throw errors and give instruction on how to configure the file.
 
-`sqlite3` Connection to extract the two tables into two dataframes. 
+`sqlite3` connections to extract the two tables into two dataframes. 
   
 Afterward are feature engineering or feature cleaning that is explained in `eda.ipynb`
 
-There is then the pipelines for `HistGradientBoostingClassifier` and `RandomForestClassifier`and the bayesian optimisations using `ax_platform`.
+There is then the pipelines for `HistGradientBoostingClassifier`, `adaBoostClasifier` and `RandomForestClassifier` and the bayesian optimisations using `ax_platform`.
 
 # In `PipelinesAndOptimisation.py` and the class
 
@@ -36,16 +36,18 @@ Then such parameter_scopes are pass to `bayesian_optimisation()` for the optimis
 
 Metrics are also saved after the analysis for analysis later with proper metrics names, classifiers names and datetime all in the name for easier distinction between them. `optimization_trace_single_method_plotly()` can plot the accuracy over iterations to see said trends.
 
-`ax_optimise()` is central to bayesian optimisation.`StratifiedKFold` is used because as seen in a bar plot of labels in `eda.ipynb`, the dataset is highly imbalanced.
+`ax_optimise()` is central to bayesian optimisation.`StratifiedKFold` is used because as seen in a bar plot of labels in `eda.ipynb`, the dataset is highly imbalanced. `StratifiedKFold` helps to prevent data leakage.
 
 `base()` does the fittin and predicting after hyperparameter tuning is completed. More metrics are captured at this point such as confusion table metirces
 
 
 # Explaination of Algorithms choosen:
 
-`Random Forest` and `Histogram Gradient Boosting Trees` are used and commonly used in analysis because ensembles helps to improve generalisability and rombustness over single estimator.
+`Random Forest`,  `ada boost` and `Histogram Gradient Boosting Tree` are used and commonly used in analysis because ensembles helps to improve generalisability and rombustness over single estimator.
 
-`Histogram Gradient Boosting Trees` is able to handle large amount of data better than `Gradient Boosting Trees` as it uses bins to reduce amount of number or to quantify the conintues values to a descrete set
+`Histogram Gradient Boosting Trees` is able to handle large amount of data better than `Gradient Boosting Trees` as it uses bins to reduce amount of number or to quantify the conintues values to a descrete set.
+
+`ada boost` is a generalisation of `Gradient Boosting Tree`. `SVM` is not used as that is for binary classification while this dataset have 3 classes.
 
 # Explaination of Metrics used:
 
