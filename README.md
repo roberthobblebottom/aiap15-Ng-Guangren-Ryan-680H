@@ -36,7 +36,7 @@ Then such parameter_scopes are pass to `bayesian_optimisation()` for the optimis
 
 Metrics are also saved after the analysis for analysis later with proper metrics names, classifiers names and datetime all in the name for easier distinction between them. `optimization_trace_single_method_plotly()` can plot the accuracy over iterations to see said trends.
 
-`ax_optimise()` is central to bayesian optimisation.`StratifiedKFold` is used because as seen in a bar plot of labels in `eda.ipynb`, the dataset is highly imbalanced. `StratifiedKFold` helps to prevent data leakage.
+`ax_optimise()` is central to bayesian optimisation.`StratifiedKFold` is used because as seen in a bar plot of labels in `eda.ipynb`, the dataset is highly imbalanced. `StratifiedKFold` helps to prevent data leakage. This 3 way cross validation helps in to prevent my model to underestimate and over estimate unseen real world itest data.
 
 `base()` does the fittin and predicting after hyperparameter tuning is completed. More metrics are captured at this point such as confusion table metirces
 
