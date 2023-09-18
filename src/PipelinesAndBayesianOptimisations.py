@@ -117,7 +117,7 @@ class PipelinesAndOptimisations:
             parameters=parameters,
             evaluation_function=self.ax_optimise,
             objective_name='accuracy',
-            total_trials=1,# TODO set it to a higher number later
+            total_trials=10,# TODO set it to a higher number later
             minimize=True,random_seed=rng
         )
         

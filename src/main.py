@@ -3,16 +3,11 @@ import sqlite3
 import sys
 import configparser
 from datetime import datetime
-from sklearn.preprocessing import OrdinalEncoder,LabelEncoder,OneHotEncoder,RobustScaler,label_binarize
+from sklearn.preprocessing import LabelEncoder,
 from sklearn.ensemble import RandomForestClassifier,HistGradientBoostingClassifier,AdaBoostClassifier
-# from imblearn.over_sampling import SMOTEN
-
-from sklearn.linear_model import SGDClassifier
 from PipelinesAndBayesianOptimisations import PipelinesAndOptimisations
 
 rng =0
-classes = []
-b=None
 
 if __name__ == "__main__":
     # config and check correctness of config
@@ -47,6 +42,12 @@ if __name__ == "__main__":
     connection_post.close()
     connection_pre.close()
         
+
+
+
+
+
+
 
     passanger_code_text = "internal_passanger_code"
 
@@ -118,9 +119,16 @@ if __name__ == "__main__":
     label_encoder = LabelEncoder()
     df_y = label_encoder.fit_transform(df_y,)
     classes = label_encoder.classes_
-    print("Histogram Gradient Boosting Classifier Bayesian Optimisation")
-    print("Histogram Gradient Boosting Classifier Bayesian Optimisation")
-    print("Histogram Gradient Boosting Classifier Bayesian Optimisation")
+
+
+
+
+
+
+
+
+
+    print("\n\nHistogram Gradient Boosting Classifier Bayesian Optimisation")
     params = [
                 "histogram_gradient_boosting_classifier__learning_rate",
                 "histogram_gradient_boosting_classifier__max_depth",
@@ -137,9 +145,7 @@ if __name__ == "__main__":
             )
     b.hist_gbc_bo()
 
-    print("Random Forest Classifier Bayesian Optimisation")
-    print("Random Forest Classifier Bayesian Optimisation")
-    print("Random Forest Classifier Bayesian Optimisation")
+    print("\n\nRandom Forest Classifier Bayesian Optimisation")
     params = [
            'random_forest_classifier__max_depth',
             'random_forest_classifier__criterion',
@@ -155,9 +161,7 @@ if __name__ == "__main__":
              )), params_to_be_set=params)
     b.rf_bo()
 
-    print("ADA boosting classifier bayesian optimisation")
-    print("ADA boosting classifier bayesian optimisation")
-    print("ADA boosting classifier bayesian optimisation")
+    print("\n\nADA boosting classifier bayesian optimisation")
 
     params = [
         'ada_boost_classifier__learning_rate',   
