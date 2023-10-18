@@ -1,4 +1,6 @@
 # aiap15-Ng-Guangren-Ryan-680H  
+# Exploratory data analysis and matching customer preferences with Cruise ticket types. More is in the pdf document in the main folder space.
+
   
 Ng Guangren, Ryan  
 ryan.ng@protonmail.com  
